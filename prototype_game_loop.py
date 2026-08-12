@@ -115,7 +115,7 @@ class Demo:
         self.killed = 0
         self.spawned = 0
         self.shots = 0
-        self.spawn_on = True
+        self.spawn_on = False  # default off: familiarization/sandbox; G re-enables
 
     def struct_at(self, gx, gy):
         if 0 <= gx < GRID_N and 0 <= gy < GRID_N:
@@ -462,6 +462,7 @@ class Demo:
     def sim(self, seconds=30.0):
         # auto-build a starter base around the core, then let the loop run.
         # Turret needs 10 banked energy, so it goes in at t=3s after producers run.
+        self.spawn_on = True  # the headless test exercises the enemy flow
         for t, gx, gy in [("E", 5, 2), ("E", 2, 5), ("M", 7, 2), ("M", 2, 7), ("F", 8, 5)]:
             self.place(t, gx, gy)
         frames = int(seconds / 0.016)
