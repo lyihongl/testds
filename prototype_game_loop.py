@@ -9,7 +9,7 @@ Sub-factory mechanic is NOT part of this demo build (see spec).
 Run:  .venv/bin/python prototype_game_loop.py
       .venv/bin/python prototype_game_loop.py --sim   # headless 30s smoke test
 Controls: ARROWS move cursor | 1-5 select structure | ENTER place
-          R restart | ESC exit
+          G toggle enemy spawn | R restart | ESC exit
 """
 
 import math
@@ -115,6 +115,7 @@ class Demo:
         self.killed = 0
         self.spawned = 0
         self.shots = 0
+        self.spawn_on = True
 
     def struct_at(self, gx, gy):
         if 0 <= gx < GRID_N and 0 <= gy < GRID_N:
@@ -150,22 +151,23 @@ class Demo:
         self.time += dt
         self.warn_t = max(0.0, self.warn_t - dt)
 
-        # enemy spawn (constant rate)
-        self.spawn_timer -= dt
-        if self.spawn_timer <= 0:
-            self.spawn_timer = SPAWN_EVERY
-            side = self.rng.randrange(4)
-            if side == 0:
-                gx, gy = self.rng.randrange(GRID_N), 0
-            elif side == 1:
-                gx, gy = self.rng.randrange(GRID_N), GRID_N - 1
-            elif side == 2:
-                gx, gy = 0, self.rng.randrange(GRID_N)
-            else:
-                gx, gy = GRID_N - 1, self.rng.randrange(GRID_N)
-            px, py = cell_center(gx, gy)
-            self.enemies.append({"fx": (px - GRID_X) / CELL, "fy": (py - GRID_Y) / CELL, "hp": ENEMY_HP})
-            self.spawned += 1
+        # enemy spawn (constant rate; G toggles it off for familiarization)
+        if self.spawn_on:
+            self.spawn_timer -= dt
+            if self.spawn_timer <= 0:
+                self.spawn_timer = SPAWN_EVERY
+                side = self.rng.randrange(4)
+                if side == 0:
+                    gx, gy = self.rng.randrange(GRID_N), 0
+                elif side == 1:
+                    gx, gy = self.rng.randrange(GRID_N), GRID_N - 1
+                elif side == 2:
+                    gx, gy = 0, self.rng.randrange(GRID_N)
+                else:
+                    gx, gy = GRID_N - 1, self.rng.randrange(GRID_N)
+                px, py = cell_center(gx, gy)
+                self.enemies.append({"fx": (px - GRID_X) / CELL, "fy": (py - GRID_Y) / CELL, "hp": ENEMY_HP})
+                self.spawned += 1
 
         # enemies: walk toward the core, chew whatever blocks them
         tcx, tcy = CORE_CELL
@@ -407,11 +409,11 @@ class Demo:
         line = (
             f"CORE {int(self.core['hp'])}/{CORE_HP}   EL {int(self.stock['el']):03d}   AM {int(self.stock['am']):03d}   "
             f"EN {int(self.stock['en']):04d}   ENEMIES {len(self.enemies):02d}   KILLED {self.killed:02d}   "
-            f"CURSOR {self.cursor[1]:02d},{self.cursor[0]:02d}   TILE {tile}"
+            f"CURSOR {self.cursor[1]:02d},{self.cursor[0]:02d}   TILE {tile}   SPAWN {'ON' if self.spawn_on else 'OFF'}"
         )
         self.screen.blit(self.font_sm.render(line, True, TEXT), (bar.x + 14, bar.y + 4))
         _, lc, _, name, _, _ = STRUCTS[self.sel]
-        hint = f"SELECT [{self.sel}] {name}   [1-5] SELECT   [ENTER] PLACE   [R] RESTART   [ESC] EXIT"
+        hint = f"SELECT [{self.sel}] {name}   [1-5] SELECT   [ENTER] PLACE   [G] SPAWN {'OFF' if self.spawn_on else 'ON'}   [R] RESTART   [ESC] EXIT"
         self.screen.blit(self.font_sm.render(hint, True, lc), (bar.x + 14, bar.y + 24))
         if self.warning and self.warn_t > 0:
             self.screen.blit(self.font_sm.render(self.warning, True, RED), (bar.x + 420, bar.y + 24))
@@ -438,6 +440,8 @@ class Demo:
                         running = False
                     elif e.key == pygame.K_r:
                         self.reset()
+                    elif e.key == pygame.K_g:
+                        self.spawn_on = not self.spawn_on
                     elif e.key in SELECT_KEYS:
                         self.sel = SELECT_KEYS[e.key]
                     elif e.key == pygame.K_RETURN:
