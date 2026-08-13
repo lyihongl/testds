@@ -4,6 +4,10 @@
 
 Work is tracked as GitHub issues, driven by the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
+### Git workflow
+
+Work happens directly on `master` in the current working tree — do not create branches or worktrees yourself. If isolation is ever needed, the human makes the worktree.
+
 ### Triage labels
 
 Five canonical roles map to labels named after them (e.g. `needs-triage`). See `docs/agents/triage-labels.md`.
