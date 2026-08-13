@@ -55,7 +55,7 @@ func drawStructures(screen *ebiten.Image, gs *game.GameState) {
 
 // drawHUD draws the live readout line (ECAMS style).
 func drawHUD(screen *ebiten.Image, gs *game.GameState) {
-	line := fmt.Sprintf("T+%.1fs  EL %d  EN %d  AM %d  spawn %v  killed %d",
+	line := fmt.Sprintf("T+%.1fs  EL %d  EN %.0f  AM %d  spawn %v  killed %d",
 		gs.Time, gs.Stockpile.El, gs.Stockpile.En, gs.Stockpile.Am, gs.Spawn.On, gs.Metrics.Killed)
 	text.Draw(screen, line, basicfont.Face7x13, 6, 10, bright)
 	text.Draw(screen, "[G] spawn  [ESC] quit", basicfont.Face7x13, ScreenW-130, ScreenH-6, dimText)

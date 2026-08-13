@@ -1,5 +1,8 @@
 # Context
 
+> How to read the Python prototypes: `docs/prototype-role.md` — they mock out
+> the basic shape of the game; the Go build is the implementation.
+
 ## Glossary
 
 - **sub-factory** — a tile that opens into a contained nested factory; encapsulation/functions applied to factory automation. The core mechanic of this project.

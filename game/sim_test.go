@@ -31,11 +31,15 @@ func TestRestartResetsWorld(t *testing.T) {
 	if gs.Time != 0 || gs.Stockpile.El != 30 {
 		t.Fatalf("restart left state: time=%v el=%v", gs.Time, gs.Stockpile.El)
 	}
-	if s := gs.StructureAt(5, 5); s == nil || s.Kind != KindCore {
-		t.Fatal("core not placed at (5,5)")
+	cx, cy := gs.CoreCell()
+	if gs.Core() == nil || cx != int64(CHUNK_SIZE/2) || cy != int64(CHUNK_SIZE/2) {
+		t.Fatalf("core not reseeded at the chunk center: cell (%d,%d)", cx, cy)
 	}
 	if gs.StructureAt(0, 0) != nil {
 		t.Fatal("old structure survived restart")
+	}
+	if len(gs.Fog) != 1 {
+		t.Fatalf("fog not reseeded: %v", gs.Fog)
 	}
 }
 
