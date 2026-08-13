@@ -43,4 +43,5 @@ Thumbs.db
 logs/
 
 # Go build artifacts
+bin/
 coredefense
