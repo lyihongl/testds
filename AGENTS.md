@@ -8,6 +8,8 @@ Work is tracked as GitHub issues, driven by the `gh` CLI. See `docs/agents/issue
 
 Work happens directly on `master` in the current working tree — do not create branches or worktrees yourself. If isolation is ever needed, the human makes the worktree.
 
+**Never commit or push automatically.** Leave all changes in the working tree and report them; the human reviews everything before it lands. (This includes housekeeping like ADRs, .gitignore, and this file.)
+
 ### Triage labels
 
 Five canonical roles map to labels named after them (e.g. `needs-triage`). See `docs/agents/triage-labels.md`.

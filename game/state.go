@@ -102,7 +102,8 @@ type Metrics struct {
 
 // GameState is the sim container and serialization root (ADR 0002). The rng
 // field is deliberately unexported: it is sim-only and never serialized
-// (reseeded on restore).
+// (reseeded on restore). Tune and Reg are likewise never serialized — they
+// are config, not state (ADR 0004).
 type GameState struct {
 	Chunks    map[ChunkPos]*Chunk
 	Stockpile Stockpile
@@ -111,15 +112,26 @@ type GameState struct {
 	Time      float64
 	Spawn     SpawnState
 	Metrics   Metrics
+	Tune      *Tuning   // live tuning table (not serialized)
+	Reg       *Registry // structure-kind registry (not serialized)
 	rng       *rand.Rand
 }
 
-// NewGameState returns a GameState with a fresh RNG.
+// NewGameState returns a GameState with default tuning and a fresh RNG.
 func NewGameState() *GameState {
-	return &GameState{
+	gs := &GameState{
 		Chunks: make(map[ChunkPos]*Chunk),
 		rng:    rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)),
 	}
+	gs.UseTuning(DefaultTuning())
+	return gs
+}
+
+// UseTuning swaps the live tuning table and rebuilds the registry. Tuning is
+// never serialized (SaveFile excludes it).
+func (gs *GameState) UseTuning(t *Tuning) {
+	gs.Tune = t
+	gs.Reg = NewRegistry(t)
 }
 
 // StructureAt returns the structure at global cell (gx, gy), or nil.
@@ -143,14 +155,27 @@ func (gs *GameState) SetStructure(gx, gy int64, s *Structure) {
 	chunk.Cells[cy][cx] = s
 }
 
-// AllStructures returns every placed structure (loaded chunks only).
-func (gs *GameState) AllStructures() []*Structure {
-	var out []*Structure
-	for _, chunk := range gs.Chunks {
+// Placed is a structure together with its grid position. Cells own
+// structures (ADR 0002), so the position is not stored on the struct itself;
+// AllStructures pairs them up for iteration.
+type Placed struct {
+	X, Y int64
+	S    *Structure
+}
+
+// AllStructures returns every placed structure (loaded chunks only) with its
+// position.
+func (gs *GameState) AllStructures() []Placed {
+	var out []Placed
+	for cp, chunk := range gs.Chunks {
 		for cy := 0; cy < CHUNK_SIZE; cy++ {
 			for cx := 0; cx < CHUNK_SIZE; cx++ {
 				if s := chunk.Cells[cy][cx]; s != nil {
-					out = append(out, s)
+					out = append(out, Placed{
+						X: int64(cp.X)<<4 | int64(cx),
+						Y: int64(cp.Y)<<4 | int64(cy),
+						S: s,
+					})
 				}
 			}
 		}
