@@ -200,17 +200,6 @@ var enemyInfo = kindInfo{name: "ENEMY", letter: "X", lc: red, fill: enemyFill}
 
 // ---- coordinates ----
 
-// cellTopLeft maps a grid cell to screen pixels (camera-relative).
-func cellTopLeft(camX, camY, gx, gy int64) (float64, float64) {
-	return float64(gridX + (gx-camX)*CELL), float64(gridY + (gy-camY)*CELL)
-}
-
-// worldToScreen maps a continuous cell coordinate to screen pixels.
-func worldToScreen(camX, camY int64, wx, wy float64) (float64, float64) {
-	return float64(gridX) + (wx-float64(camX))*CELL + CELL/2,
-		float64(gridY) + (wy-float64(camY))*CELL + CELL/2
-}
-
 // regionBounds returns the de-fogged region's cell bounds (inclusive), or the
 // core's cell when the fog set is empty (restored saves).
 func regionBounds(gs *game.GameState) (minX, minY, maxX, maxY int64) {
@@ -296,13 +285,13 @@ func drawGrid(screen, buf *ebiten.Image, gs *game.GameState, cam *Camera, curX, 
 	// as the panel border; interior edges show when multiple chunks are lit).
 	for e := vx0 + 1; e <= vx1; e++ {
 		if e%game.CHUNK_SIZE == 0 {
-			x := float32(float64(e)-cam.X) * CELL
+			x := float32((float64(e) - cam.X) * CELL * cam.Scale)
 			vector.StrokeLine(buf, x, 0, x, float32(panelH), float32(2*cam.Scale), borderColor, false)
 		}
 	}
 	for e := vy0 + 1; e <= vy1; e++ {
 		if e%game.CHUNK_SIZE == 0 {
-			y := float32(float64(e)-cam.Y) * CELL
+			y := float32((float64(e) - cam.Y) * CELL * cam.Scale)
 			vector.StrokeLine(buf, 0, y, float32(panelW), y, float32(2*cam.Scale), borderColor, false)
 		}
 	}
@@ -525,7 +514,7 @@ func drawStatus(screen *ebiten.Image, gs *game.GameState, curX, curY int64, sel 
 	if !ok {
 		return
 	}
-	hint := fmt.Sprintf("SELECT [%s] %s  [ENTER] PLACE  [G] SPAWN %s  [R] RESTART  [WASD] PAN  [+/-] ZOOM  [ESC] EXIT",
+	hint := fmt.Sprintf("SELECT [%s] %s  [ENTER] PLACE  [G] SPAWN %s  [R] RESTART  [WASD] PAN  [+/-] ZOOM  [WINDOW X] EXIT",
 		ki.letter, ki.name, map[bool]string{true: "OFF", false: "ON"}[gs.Spawn.On])
 	drawText(screen, hint, face(20), 28, float64(barY+54), ki.lc)
 }
@@ -538,5 +527,5 @@ func drawGameOver(screen *ebiten.Image, gs *game.GameState) {
 	drawTextCentered(screen, "GAME OVER — CORE DESTROYED", face(40), ScreenW/2, 320, 52, red)
 	survived := fmt.Sprintf("SURVIVED %02d:%02d", int(gs.Time/60), int(gs.Time)%60)
 	drawTextCentered(screen, survived, face(24), ScreenW/2, 400, 32, bright)
-	drawTextCentered(screen, "[R] RESTART   [ESC] EXIT", face(22), ScreenW/2, 456, 28, dimText)
+	drawTextCentered(screen, "[R] RESTART   [WINDOW X] EXIT", face(22), ScreenW/2, 456, 28, dimText)
 }

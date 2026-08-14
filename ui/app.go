@@ -92,7 +92,7 @@ func (a *App) Update() error {
 
 	var in game.Intent
 	for _, k := range []ebiten.Key{
-		ebiten.KeyEscape, ebiten.KeyG, ebiten.KeyR, ebiten.KeyEnter,
+		ebiten.KeyG, ebiten.KeyR, ebiten.KeyEnter,
 		ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight,
 		ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
 		ebiten.KeyEqual, ebiten.KeyNumpadAdd,
@@ -101,8 +101,6 @@ func (a *App) Update() error {
 		pressed := ebiten.IsKeyPressed(k)
 		if pressed && !a.prev[k] { // rising edge: pressed this frame
 			switch k {
-			case ebiten.KeyEscape:
-				return ebiten.Termination
 			case ebiten.KeyG:
 				in.ToggleSpawn = true
 			case ebiten.KeyR:
