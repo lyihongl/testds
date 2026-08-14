@@ -17,3 +17,4 @@
 - **wall** — a cheap blocking structure; enemies chew through it.
 - **turret** — the single weapon type; consumes ammo, targets the nearest enemy in range.
 - **drone** — the transport layer; ferries items between machines on request.
+- **logistics** — the drone transport module (game/logistics.go): dedups trips per machine cell+item, moves drones, and delivers between machine buffers and the stockpile point. Its interface is requestDrone + stepDrones; machines never touch trip mechanics.

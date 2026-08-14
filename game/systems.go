@@ -122,7 +122,7 @@ func stepEnergy(gs *GameState, placed []Placed, dt float64) {
 	}
 }
 
-// ---------- machines: production + drone requests ----------
+// ---------- machines: production + logistics requests ----------
 
 func stepMachines(gs *GameState, placed []Placed, dt float64) {
 	for _, p := range placed {
@@ -136,7 +136,7 @@ func stepMachines(gs *GameState, placed []Placed, dt float64) {
 				s.Buffer.El = min(s.Buffer.El+1, int(st.Stats.Buffer))
 			}
 			// Ship elements to the stockpile (core) as they accumulate.
-			if s.Buffer.El > 0 && !dronePending(gs, p.X, p.Y, "el") {
+			if s.Buffer.El > 0 {
 				requestDrone(gs, p.X, p.Y, "el", true)
 			}
 		case KindFactory:
@@ -149,130 +149,21 @@ func stepMachines(gs *GameState, placed []Placed, dt float64) {
 				s.Buffer.Am = min(s.Buffer.Am+int(st.Stats.FactoryAmmo), int(st.Stats.Buffer))
 			}
 			// Ship ammo to the stockpile (core) as it accumulates.
-			if s.Buffer.Am > 0 && !dronePending(gs, p.X, p.Y, "am") {
+			if s.Buffer.Am > 0 {
 				requestDrone(gs, p.X, p.Y, "am", true)
 			}
 			// Import elements from the stockpile for conversion.
-			if s.Buffer.El < int(st.Stats.Buffer) && gs.Stockpile.El > 0 && !dronePending(gs, p.X, p.Y, "el") {
+			if s.Buffer.El < int(st.Stats.Buffer) && gs.Stockpile.El > 0 {
 				requestDrone(gs, p.X, p.Y, "el", false)
 			}
 		case KindTurret:
 			st, _ := gs.Reg.Get(KindTurret)
 			s := p.S
 			// Import ammo from the stockpile when the turret has capacity.
-			if s.Buffer.Am < int(st.Stats.Buffer) && gs.Stockpile.Am > 0 && !dronePending(gs, p.X, p.Y, "am") {
+			if s.Buffer.Am < int(st.Stats.Buffer) && gs.Stockpile.Am > 0 {
 				requestDrone(gs, p.X, p.Y, "am", false)
 			}
 		}
-	}
-}
-
-// dronePending reports whether a drone is already in flight for this machine
-// cell carrying this item (one outstanding request per cell+item).
-func dronePending(gs *GameState, gx, gy int64, item string) bool {
-	for _, d := range gs.Drones {
-		if d.GX == gx && d.GY == gy && d.Item == item {
-			return true
-		}
-	}
-	return false
-}
-
-// requestDrone dispatches a drone carrying one item between the machine cell
-// and the stockpile point (the core's cell — the base has no separate depot,
-// grill Q4). toStockpile true: machine → core; false: core → machine.
-func requestDrone(gs *GameState, gx, gy int64, item string, toStockpile bool) {
-	var src, dst Vec
-	if toStockpile {
-		src = Vec{X: float64(gx) + 0.5, Y: float64(gy) + 0.5}
-		dst = gs.coreCenter()
-	} else {
-		src = gs.coreCenter()
-		dst = Vec{X: float64(gx) + 0.5, Y: float64(gy) + 0.5}
-	}
-	dist := math.Hypot(dst.X-src.X, dst.Y-src.Y)
-	gs.Drones = append(gs.Drones, Drone{
-		Item:    item,
-		ToDepot: toStockpile,
-		SX:      src.X, SY: src.Y,
-		TX: dst.X, TY: dst.Y,
-		Dur: dist / gs.Tune.DroneSpeed,
-		GX:  gx, GY: gy,
-	})
-}
-
-// ---------- drones: trips + delivery ----------
-
-func stepDrones(gs *GameState, dt float64) {
-	alive := gs.Drones[:0]
-	for _, d := range gs.Drones {
-		d.T += dt
-		if d.T < d.Dur {
-			alive = append(alive, d)
-			continue
-		}
-		deliver(gs, d)
-	}
-	gs.Drones = alive
-}
-
-// deliver applies a completed trip: one item moves between the machine cell's
-// buffer and the stockpile. If the machine is gone, the item is lost (or, for
-// imports, stays in the stockpile).
-func deliver(gs *GameState, d Drone) {
-	m := gs.StructureAt(d.GX, d.GY)
-	if m == nil {
-		return
-	}
-	if d.ToDepot { // machine → stockpile
-		subBufferItem(&m.Buffer, d.Item)
-		addStock(gs, d.Item)
-	} else { // stockpile → machine
-		addBufferItem(&m.Buffer, d.Item, bufferCap(gs, m.Kind))
-		subStock(gs, d.Item)
-	}
-}
-
-func bufferCap(gs *GameState, kind string) int {
-	if e, ok := gs.Reg.Get(kind); ok {
-		return int(e.Stats.Buffer)
-	}
-	return 0
-}
-
-func addBufferItem(b *Buffer, item string, cap int) {
-	switch item {
-	case "el":
-		b.El = min(b.El+1, cap)
-	case "am":
-		b.Am = min(b.Am+1, cap)
-	}
-}
-
-func subBufferItem(b *Buffer, item string) {
-	switch item {
-	case "el":
-		b.El = max(b.El-1, 0)
-	case "am":
-		b.Am = max(b.Am-1, 0)
-	}
-}
-
-func addStock(gs *GameState, item string) {
-	switch item {
-	case "el":
-		gs.Stockpile.El++
-	case "am":
-		gs.Stockpile.Am++
-	}
-}
-
-func subStock(gs *GameState, item string) {
-	switch item {
-	case "el":
-		gs.Stockpile.El = max(gs.Stockpile.El-1, 0)
-	case "am":
-		gs.Stockpile.Am = max(gs.Stockpile.Am-1, 0)
 	}
 }
 
