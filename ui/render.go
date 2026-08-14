@@ -92,12 +92,22 @@ func init() {
 	}
 }
 
-// face returns a mono face at size px.
+// face returns a mono face at size px. Faces are cached by size: ebiten
+// batches text through the face's source glyph cache, and reusing the face
+// keeps per-frame text rendering allocation-free (sizes are few — the zoom
+// ladder bounds them).
+var faceCache = map[float64]textv2.Face{}
+
 func face(size float64) textv2.Face {
-	if monoSource != nil {
-		return &textv2.GoTextFace{Source: monoSource, Size: size}
+	if monoSource == nil {
+		return basicFace
 	}
-	return basicFace
+	if f, ok := faceCache[size]; ok {
+		return f
+	}
+	f := &textv2.GoTextFace{Source: monoSource, Size: size}
+	faceCache[size] = f
+	return f
 }
 
 // ---- text helpers ----
@@ -346,16 +356,50 @@ func drawStructure(screen *ebiten.Image, gs *game.GameState, cam *Camera, s *gam
 	}
 }
 
+// enemyPlaque returns the pre-rendered enemy blip (fill + stroke + X) for a
+// zoom scale, built once per ladder step. Drawing the static plaque is one
+// blit per enemy instead of two rounded-path fills plus a text draw — the
+// per-frame render cost no longer scales with the enemy population (the
+// deferred vector fill of thousands of paths was the frame killer).
+var enemyPlaqueCache = map[float64]*ebiten.Image{}
+
+func enemyPlaque(scale float64) *ebiten.Image {
+	if img, ok := enemyPlaqueCache[scale]; ok {
+		return img
+	}
+	sz := float32(scale)
+	m := 2 * sz // stroke overhang + anti-aliasing margin
+	size := int(32*sz + 2*m)
+	img := ebiten.NewImage(size, size)
+	fillRounded(img, m, m, 32*sz, 32*sz, 8*sz, enemyFill)
+	strokeRounded(img, m, m, 32*sz, 32*sz, 8*sz, 2*sz, red)
+	drawTextCentered(img, "X", face(20*scale), float64(m+16*sz), float64(m+16*sz+1), 24*scale, red)
+	enemyPlaqueCache[scale] = img
+	return img
+}
+
 func drawEnemies(view *ebiten.Image, gs *game.GameState, cam *Camera) {
 	sz := float32(cam.Scale)
+	plaque := enemyPlaque(cam.Scale)
+	m := float64(32*sz + 4)          // cull margin: plaque half-width + stroke + slack
+	var opts ebiten.DrawImageOptions // reused per enemy (blit transform only)
 	for i := range gs.Enemies {
 		e := &gs.Enemies[i]
 		sx, sy := cam.WorldToScreen(e.FX, e.FY)
-		fillRounded(view, float32(sx-16*float64(sz)), float32(sy-16*float64(sz)), 32*sz, 32*sz, 8*sz, enemyFill)
-		strokeRounded(view, float32(sx-16*float64(sz)), float32(sy-16*float64(sz)), 32*sz, 32*sz, 8*sz, 2*sz, red)
-		drawTextCentered(view, "X", face(20*cam.Scale), sx, sy+1, 24*cam.Scale, red)
-		frac := float32(max(0, e.HP) / gs.Tune.EnemyHP)
-		fillRect(view, float32(sx-16*float64(sz)), float32(sy+18*float64(sz)), 32*sz*frac, 4*sz, red)
+		// Viewport cull: enemies outside the panel skip all draw work. The
+		// population may be large while only a windowful is ever visible.
+		if sx < -m || sx > panelW+m || sy < -m || sy > panelH+m {
+			continue
+		}
+		opts.GeoM.Reset()
+		opts.GeoM.Translate(sx-16*float64(sz)-2*float64(sz), sy-16*float64(sz)-2*float64(sz))
+		view.DrawImage(plaque, &opts)
+		// HP strip only when damaged — full-HP enemies skip two fills.
+		if e.HP < gs.Tune.EnemyHP {
+			frac := float32(max(0, e.HP)) / float32(gs.Tune.EnemyHP)
+			fillRect(view, float32(sx-16*float64(sz)), float32(sy+18*float64(sz)), 32*sz*frac, 4*sz, red)
+			fillRect(view, float32(sx-16*float64(sz))+32*sz*frac, float32(sy+18*float64(sz)), 32*sz*(1-frac), 4*sz, emptyCell)
+		}
 	}
 }
 

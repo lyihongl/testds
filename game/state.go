@@ -118,20 +118,21 @@ type Metrics struct {
 // and Reg (config, ADR 0004), and the core anchor (grill Q2). Fog is state —
 // the de-fogged territory that defines the spawn boundary (grill Q3).
 type GameState struct {
-	Chunks    map[ChunkPos]*Chunk
-	Stockpile Stockpile
-	Enemies   []Enemy
-	Drones    []Drone
-	Time      float64
-	Spawn     SpawnState
-	Metrics   Metrics
-	Fog       map[ChunkPos]bool // de-fogged chunks: territory, spawn boundary
-	Tune      *Tuning           // live tuning table (not serialized)
-	Reg       *Registry         // structure-kind registry (not serialized)
-	core      *Structure        // anchor: the single core (never serialized)
-	coreX     int64             // the core's cell (never serialized)
-	coreY     int64
-	rng       *rand.Rand
+	Chunks        map[ChunkPos]*Chunk
+	Stockpile     Stockpile
+	Enemies       []Enemy
+	Drones        []Drone
+	Time          float64
+	Spawn         SpawnState
+	Metrics       Metrics
+	Fog           map[ChunkPos]bool // de-fogged chunks: territory, spawn boundary
+	Tune          *Tuning           // live tuning table (not serialized)
+	Reg           *Registry         // structure-kind registry (not serialized)
+	core          *Structure        // anchor: the single core (never serialized)
+	coreX         int64             // the core's cell (never serialized)
+	coreY         int64
+	placedScratch []Placed // AllStructures iteration buffer (never serialized)
+	rng           *rand.Rand
 }
 
 // NewGameState returns a fresh, reset game: default tuning, core seeded at
@@ -184,14 +185,16 @@ type Placed struct {
 }
 
 // AllStructures returns every placed structure (loaded chunks only) with its
-// position.
+// position. It fills a scratch slice owned by gs — zero allocation per call,
+// so the frame's snapshot cost no longer grows with the structure count
+// (callers must not retain the result beyond the frame).
 func (gs *GameState) AllStructures() []Placed {
-	var out []Placed
+	gs.placedScratch = gs.placedScratch[:0]
 	for cp, chunk := range gs.Chunks {
 		for cy := 0; cy < CHUNK_SIZE; cy++ {
 			for cx := 0; cx < CHUNK_SIZE; cx++ {
 				if s := chunk.Cells[cy][cx]; s != nil {
-					out = append(out, Placed{
+					gs.placedScratch = append(gs.placedScratch, Placed{
 						X: int64(cp.X)*CHUNK_SIZE + int64(cx),
 						Y: int64(cp.Y)*CHUNK_SIZE + int64(cy),
 						S: s,
@@ -200,7 +203,7 @@ func (gs *GameState) AllStructures() []Placed {
 			}
 		}
 	}
-	return out
+	return gs.placedScratch
 }
 
 // RNG exposes the sim's random source (systems draw from it; it is never
