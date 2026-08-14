@@ -165,7 +165,7 @@ func strokeRounded(screen *ebiten.Image, x, y, w, h, r, width float32, c color.C
 }
 
 func fillRect(screen *ebiten.Image, x, y, w, h float32, c color.Color) {
-	vector.DrawFilledRect(screen, x, y, w, h, c, false)
+	vector.FillRect(screen, x, y, w, h, c, false)
 }
 
 // panel draws a standard panel: dark fill, thin border.

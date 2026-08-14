@@ -78,7 +78,7 @@ var (
 func NewApp(gs *game.GameState) *App {
 	ebiten.SetWindowTitle("CORE DEFENSE")
 	ebiten.SetWindowSize(ScreenW, ScreenH)
-	ebiten.SetWindowResizable(true)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	cx, cy := gs.CoreCell()
 	a := &App{
 		gs:   gs,
