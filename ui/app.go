@@ -6,6 +6,7 @@ package ui
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"coredefense/game"
 )
@@ -15,6 +16,15 @@ import (
 const (
 	ScreenW = 1280
 	ScreenH = 720
+)
+
+// Cursor-key auto-repeat: a held arrow fires on its initial press, then after
+// repeatDelay frames of holding and every repeatInterval frames thereafter.
+// Only the arrow keys repeat — everything else stays edge-triggered (holding
+// ENTER would otherwise spam placements).
+const (
+	repeatDelay    = 12 // frames (0.2 s) before a held arrow starts repeating
+	repeatInterval = 4  // frames (~67 ms) between repeat moves
 )
 
 // App implements ebiten.Game: it owns the GameState reference and the fx
@@ -99,7 +109,9 @@ func (a *App) Update() error {
 		ebiten.KeyMinus,
 	} {
 		pressed := ebiten.IsKeyPressed(k)
-		if pressed && !a.prev[k] { // rising edge: pressed this frame
+		edge := pressed && !a.prev[k] // rising edge: pressed this frame
+		repeat := pressed && isArrowKey(k) && cursorRepeat(inpututil.KeyPressDuration(k))
+		if edge || repeat {
 			switch k {
 			case ebiten.KeyG:
 				in.ToggleSpawn = true
@@ -170,6 +182,23 @@ func (a *App) pan(dt float64, pressed func(ebiten.Key) bool) {
 // moveCursor moves the cursor within the de-fogged region and pans the camera
 // to keep the cursor in view. Cursor-follow engages only when the cursor
 // moves, so manual WASD panning is never fought until the player acts again.
+// isArrowKey reports whether k is one of the cursor keys (the only keys with
+// held-key auto-repeat).
+func isArrowKey(k ebiten.Key) bool {
+	switch k {
+	case ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight:
+		return true
+	}
+	return false
+}
+
+// cursorRepeat reports whether a held arrow key should fire a repeat move this
+// frame: after repeatDelay frames of holding, then every repeatInterval frames.
+// The initial press is handled by edge detection, not here.
+func cursorRepeat(heldFor int) bool {
+	return heldFor > repeatDelay && (heldFor-repeatDelay)%repeatInterval == 0
+}
+
 func (a *App) moveCursor(k ebiten.Key) {
 	minX, minY, maxX, maxY := a.region()
 	switch k {

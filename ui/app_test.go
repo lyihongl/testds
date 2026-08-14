@@ -106,6 +106,35 @@ func TestCameraWorldMapping(t *testing.T) {
 
 // TestPanWiring guards the WASD pan path: Update's pan calls must actually
 // move the camera (this caught the block silently missing from Update once).
+// TestCursorRepeatSchedule pins the held-arrow auto-repeat cadence: quiet
+// through the initial delay, then one move every repeatInterval frames.
+func TestCursorRepeatSchedule(t *testing.T) {
+	for d := 1; d <= repeatDelay; d++ {
+		if cursorRepeat(d) {
+			t.Fatalf("cursorRepeat(%d) fired during the hold delay", d)
+		}
+	}
+	for d := repeatDelay + 1; d <= repeatDelay+3*repeatInterval; d++ {
+		want := (d-repeatDelay)%repeatInterval == 0
+		if got := cursorRepeat(d); got != want {
+			t.Fatalf("cursorRepeat(%d) = %v, want %v", d, got, want)
+		}
+	}
+}
+
+// TestIsArrowKey pins that exactly the four cursor keys auto-repeat.
+func TestIsArrowKey(t *testing.T) {
+	arrows := map[ebiten.Key]bool{
+		ebiten.KeyArrowUp: true, ebiten.KeyArrowDown: true,
+		ebiten.KeyArrowLeft: true, ebiten.KeyArrowRight: true,
+	}
+	for _, k := range []ebiten.Key{ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyArrowLeft, ebiten.KeyArrowRight, ebiten.KeyEnter, ebiten.KeyG, ebiten.KeyR, ebiten.KeyDigit1, ebiten.KeyMinus, ebiten.KeyW} {
+		if got := isArrowKey(k); got != arrows[k] {
+			t.Fatalf("isArrowKey(%v) = %v, want %v", k, got, arrows[k])
+		}
+	}
+}
+
 func TestPanWiring(t *testing.T) {
 	a := newTestApp()
 	pressed := func(k ebiten.Key) bool { return k == ebiten.KeyD }
