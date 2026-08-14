@@ -44,7 +44,7 @@ func newDebugPanel(gs *game.GameState) *debugPanel {
 	if err != nil {
 		panic(err) // debug-only; a broken panel should not silently vanish
 	}
-	var face textv2.Face = &textv2.GoTextFace{Source: src, Size: 12}
+	var face textv2.Face = &textv2.GoTextFace{Source: src, Size: 16}
 
 	textCol := color.RGBA{0x96, 0xD2, 0xB4, 0xFF}
 	track := &widget.SliderTrackImage{Idle: eimage.NewNineSliceColor(color.RGBA{0x2D, 0x50, 0x3C, 0xFF})}
