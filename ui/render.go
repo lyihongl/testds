@@ -240,12 +240,12 @@ func regionBounds(gs *game.GameState) (minX, minY, maxX, maxY int64) {
 func (a *App) Draw(screen *ebiten.Image) {
 	screen.Fill(bgColor)
 	drawHeader(screen, a.gs)
-	drawGrid(screen, a.worldBuf, a.gs, a.cam, a.curX, a.curY, a.sel, a.gs.GameOver())
+	a.lastVisibleEnemies = drawGrid(screen, a.worldBuf, a.gs, a.cam, a.curX, a.curY, a.sel, a.gs.GameOver())
 	drawStock(screen, a.gs)
 	drawTile(screen, a.gs, a.curX, a.curY)
 	drawLegend(screen)
 	drawSelect(screen, a.gs, a.sel)
-	drawStatus(screen, a.gs, a.curX, a.curY, a.sel)
+	drawStatus(screen, a.gs, a.curX, a.curY, a.sel, a.lastVisibleEnemies)
 	a.fx.Draw(screen, a.worldBuf, a.cam)
 	if a.gs.GameOver() {
 		drawGameOver(screen, a.gs)
@@ -268,7 +268,7 @@ func drawHeader(screen *ebiten.Image, gs *game.GameState) {
 // per-chunk image caching is the optimization to revisit when the de-fogged
 // region grows (ticket #21). Drawing into a screen SubImage is avoided:
 // ebiten's vector fills ignore the subimage offset.
-func drawGrid(screen, buf *ebiten.Image, gs *game.GameState, cam *Camera, curX, curY int64, sel string, gameOver bool) {
+func drawGrid(screen, buf *ebiten.Image, gs *game.GameState, cam *Camera, curX, curY int64, sel string, gameOver bool) int {
 	panel(screen, panelX, panelY, panelW, panelH)
 	buf.Clear()
 	minX, minY, maxX, maxY := regionBounds(gs)
@@ -306,7 +306,7 @@ func drawGrid(screen, buf *ebiten.Image, gs *game.GameState, cam *Camera, curX, 
 		}
 	}
 
-	drawEnemies(buf, gs, cam)
+	visible := drawEnemies(buf, gs, cam)
 	drawDrones(buf, gs, cam)
 
 	// Placement ghost: the selected kind's letter at low alpha on the cursor
@@ -329,6 +329,7 @@ func drawGrid(screen, buf *ebiten.Image, gs *game.GameState, cam *Camera, curX, 
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(panelX, panelY)
 	screen.DrawImage(buf, opts)
+	return visible
 }
 
 // drawStructure renders one plaque: kind-colored letter on its fill, plus a
@@ -378,11 +379,15 @@ func enemyPlaque(scale float64) *ebiten.Image {
 	return img
 }
 
-func drawEnemies(view *ebiten.Image, gs *game.GameState, cam *Camera) {
+// drawEnemies draws the enemy blips in the panel and returns how many were
+// visible (passed the viewport cull) — the count on screen this frame, for
+// the status bar's VISIBLE readout.
+func drawEnemies(view *ebiten.Image, gs *game.GameState, cam *Camera) int {
 	sz := float32(cam.Scale)
 	plaque := enemyPlaque(cam.Scale)
 	m := float64(32*sz + 4)          // cull margin: plaque half-width + stroke + slack
 	var opts ebiten.DrawImageOptions // reused per enemy (blit transform only)
+	visible := 0
 	for i := range gs.Enemies {
 		e := &gs.Enemies[i]
 		sx, sy := cam.WorldToScreen(e.FX, e.FY)
@@ -391,6 +396,7 @@ func drawEnemies(view *ebiten.Image, gs *game.GameState, cam *Camera) {
 		if sx < -m || sx > panelW+m || sy < -m || sy > panelH+m {
 			continue
 		}
+		visible++
 		opts.GeoM.Reset()
 		opts.GeoM.Translate(sx-16*float64(sz)-2*float64(sz), sy-16*float64(sz)-2*float64(sz))
 		view.DrawImage(plaque, &opts)
@@ -401,6 +407,7 @@ func drawEnemies(view *ebiten.Image, gs *game.GameState, cam *Camera) {
 			fillRect(view, float32(sx-16*float64(sz))+32*sz*frac, float32(sy+18*float64(sz)), 32*sz*(1-frac), 4*sz, emptyCell)
 		}
 	}
+	return visible
 }
 
 func drawDrones(view *ebiten.Image, gs *game.GameState, cam *Camera) {
@@ -530,7 +537,7 @@ func drawSelect(screen *ebiten.Image, gs *game.GameState, sel string) {
 
 // ---- bottom bar ----
 
-func drawStatus(screen *ebiten.Image, gs *game.GameState, curX, curY int64, sel string) {
+func drawStatus(screen *ebiten.Image, gs *game.GameState, curX, curY int64, sel string, visibleEnemies int) {
 	panel(screen, 8, barY, 1264, barH)
 
 	core := gs.Core()
@@ -550,8 +557,8 @@ func drawStatus(screen *ebiten.Image, gs *game.GameState, curX, curY int64, sel 
 	if gs.Spawn.On {
 		spawn = "ON"
 	}
-	line := fmt.Sprintf("CORE %-8s ENEMIES %02d  KILLED %02d  CURSOR %02d,%02d  TILE %-11s SPAWN %s",
-		coreHP, len(gs.Enemies), gs.Metrics.Killed, curY, curX, tile, spawn)
+	line := fmt.Sprintf("CORE %-8s ENEMIES %02d  VISIBLE %02d  KILLED %02d  CURSOR %02d,%02d  TILE %-11s SPAWN %s",
+		coreHP, len(gs.Enemies), visibleEnemies, gs.Metrics.Killed, curY, curX, tile, spawn)
 	drawText(screen, line, face(20), 28, float64(barY+20), bright)
 
 	ki, ok := kinds[sel]

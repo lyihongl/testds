@@ -42,6 +42,10 @@ type App struct {
 	cam        *Camera // world→panel offset; pans freely over the infinite grid
 	sel        string  // selected structure kind (keys 1-5)
 
+	// lastVisibleEnemies is the count of enemy blips drawn in the panel last
+	// frame (set by drawGrid, shown by drawStatus) — a live on-screen readout.
+	lastVisibleEnemies int
+
 	// worldBuf is the offscreen the world renders into each frame (grid,
 	// entities, tracers), then blits at the panel rect. Drawing world space
 	// into a screen SubImage is unreliable (ebiten's vector fills ignore the
